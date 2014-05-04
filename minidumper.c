@@ -15,9 +15,11 @@
 HMODULE DbgHelp = NULL;
 LPTOP_LEVEL_EXCEPTION_FILTER previous_filter = NULL;
 
+PyObject *callback = NULL;
+
 static struct {
-    Py_UNICODE *dir;
-    Py_UNICODE *app_name;
+    Py_UNICODE dir[MAX_PATH];
+    Py_UNICODE app_name[MAX_PATH];
     MINIDUMP_TYPE dump_type;
 } dump_details;
 
@@ -35,7 +37,6 @@ exception_filter(EXCEPTION_POINTERS *exception)
              dump_details.dir, dump_details.app_name,
              st.wYear, st.wMonth, st.wDay,
              st.wHour, st.wMinute, st.wSecond);
-
     file = CreateFileW(name, GENERIC_WRITE, /* not shared */0, NULL,
                CREATE_ALWAYS, /* Start fresh */
                FILE_FLAG_WRITE_THROUGH /* Write straigt to disk */,
@@ -55,6 +56,9 @@ exception_filter(EXCEPTION_POINTERS *exception)
                            0 /* Callback */);
     CloseHandle(file);
 
+    if(callback)
+        PyObject_CallObject(callback, Py_BuildValue("(u)", name));
+
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -68,7 +72,9 @@ PyDoc_STRVAR(enable_doc,
 "the prefix of the dump name. The default is 'python'.\n"
 "\n"
 "type is an integer from the MINIDUMP_TYPE enum.\n"
-"The default is MiniDumpNormal.");
+"The default is MiniDumpNormal.\n"
+"\n"
+"callback is a function invoked after write coredump, dump file name as the only argument.");
 
 static PyObject *
 mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -77,7 +83,7 @@ mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
     Py_UNICODE *pydir = L"";
     int type = MiniDumpNormal;
 
-    char *keywords[] = {"dir", "name", "type", NULL};
+    char *keywords[] = {"dir", "name", "type", "callback", NULL};
 
     if (DbgHelp == NULL) {
         if ((DbgHelp = LoadLibraryW(L"DbgHelp.dll")) == NULL) {
@@ -91,13 +97,18 @@ mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|uui:enable", keywords,
-                                     &pydir, &pyname, &type)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|uuiO:enable", keywords,
+                                     &pydir, &pyname, &type, &callback)) {
         return NULL;
     }
 
-    dump_details.dir = pydir;
-    dump_details.app_name = pyname;
+    if (callback && !PyCallable_Check(callback)) {
+        PyErr_SetString(PyExc_TypeError, "callback must be callbable");
+        return NULL;
+    }
+
+    wcsncpy(dump_details.app_name, pyname, wcslen(pyname));
+    wcsncpy(dump_details.dir, pydir, wcslen(pydir));
     dump_details.dump_type = type;
 
     /* Store off the old filter so we can put it back later. */
@@ -127,9 +138,6 @@ mdmp_disable(PyObject *self)
         }
         DbgHelp = NULL;
     }
-
-    dump_details.app_name = NULL;
-    dump_details.dir = NULL;
 
     Py_RETURN_NONE;
 }

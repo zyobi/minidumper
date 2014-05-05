@@ -96,7 +96,7 @@ mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
         }
     }
 
-    if (!GetCurrentDirectoryW(/* buffer size*/ MAX_PATH, pydir)) {
+    if (!GetCurrentDirectoryW(1, pydir)) {
         PyErr_SetString(PyExc_OSError, "Unable to get the current directory");
         return NULL;
     }
@@ -111,8 +111,8 @@ mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    wcsncpy(dump_details.app_name, pyname, MAX_PATH);
-    wcsncpy(dump_details.dir, pydir, MAX_PATH);
+    wcsncpy_s(dump_details.app_name, MAX_PATH, pyname, _TRUNCATE);
+    wcsncpy_s(dump_details.dir, MAX_PATH, pydir, _TRUNCATE);
     dump_details.dump_type = type;
     Py_XINCREF(pycallback);
     Py_XDECREF(callback);

@@ -31,6 +31,7 @@ exception_filter(EXCEPTION_POINTERS *exception)
     MINIDUMP_EXCEPTION_INFORMATION info;
     SYSTEMTIME st;
     Py_UNICODE name [MAX_PATH];
+    PyObject *arglist;
 
     GetSystemTime(&st);
     swprintf(name, MAX_PATH, L"%s\\%s_%04d%02d%02d-%02d%02d%02d.mdmp",
@@ -57,7 +58,9 @@ exception_filter(EXCEPTION_POINTERS *exception)
     CloseHandle(file);
 
     if(callback)
-        PyObject_CallObject(callback, Py_BuildValue("(u)", name));
+        arglist = Py_BuildValue("(u)", name);
+        PyObject_CallObject(callback, arglist);
+        Py_DECREF(arglist);
 
     return EXCEPTION_EXECUTE_HANDLER;
 }

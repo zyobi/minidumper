@@ -12,10 +12,10 @@
 #error Sorry, Windows only.
 #endif
 
-HMODULE DbgHelp = NULL;
-LPTOP_LEVEL_EXCEPTION_FILTER previous_filter = NULL;
+static HMODULE DbgHelp = NULL;
+static LPTOP_LEVEL_EXCEPTION_FILTER previous_filter = NULL;
 
-PyObject *callback = NULL;
+static PyObject *callback = NULL;
 
 static struct {
     Py_UNICODE dir[MAX_PATH];
@@ -82,6 +82,7 @@ mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
     Py_UNICODE *pyname = L"python";
     Py_UNICODE *pydir = L"";
     int type = MiniDumpNormal;
+    PyObject *pycallback = NULL;
 
     char *keywords[] = {"dir", "name", "type", "callback", NULL};
 
@@ -98,18 +99,21 @@ mdmp_enable(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|uuiO:enable", keywords,
-                                     &pydir, &pyname, &type, &callback)) {
+                                     &pydir, &pyname, &type, &pycallback)) {
         return NULL;
     }
 
-    if (callback && !PyCallable_Check(callback)) {
+    if (pycallback && !PyCallable_Check(pycallback)) {
         PyErr_SetString(PyExc_TypeError, "callback must be callbable");
         return NULL;
     }
 
-    wcsncpy(dump_details.app_name, pyname, wcslen(pyname));
-    wcsncpy(dump_details.dir, pydir, wcslen(pydir));
+    wcsncpy(dump_details.app_name, pyname, MAX_PATH);
+    wcsncpy(dump_details.dir, pydir, MAX_PATH);
     dump_details.dump_type = type;
+    Py_XINCREF(pycallback);
+    Py_XDECREF(callback);
+    callback = pycallback;
 
     /* Store off the old filter so we can put it back later. */
     if (previous_filter != exception_filter)
@@ -173,7 +177,7 @@ PyMODINIT_FUNC initminidumper(void)
     PyObject *module = Py_InitModule3("minidumper", minidumper_functions, "Windows crash handler and minidump writer");
 
     if (module == NULL)
-        return NULL;
+        return;
 
     /* MINIDUMP_TYPE values */
     PyModule_AddIntMacro(module, MiniDumpNormal);
@@ -205,8 +209,6 @@ PyMODINIT_FUNC initminidumper(void)
 #ifdef MiniDumpWithTokenInformation
     PyModule_AddIntMacro(module, MiniDumpWithTokenInformation);
 #endif
-
-    return module;
 }
 
 

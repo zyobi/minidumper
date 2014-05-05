@@ -39,21 +39,20 @@ static PyMethodDef tester_functions[] = {
     {NULL, NULL, 0, NULL}
 };
 
-static struct PyModuleDef tester_module = {
-    PyModuleDef_HEAD_INIT,
-    "tester",
-    "Test module that crashes and does bad stuff",
-    -1,
-    tester_functions,
-    NULL, NULL, NULL, NULL
-};
+//static struct PyModuleDef tester_module = {
+//    PyModuleDef_HEAD_INIT,
+//    "tester",
+//    "Test module that crashes and does bad stuff",
+//    -1,
+//    tester_functions,
+//    NULL, NULL, NULL, NULL
+//};
 
-PyMODINIT_FUNC PyInit_tester(void)
+PyMODINIT_FUNC inittester(void)
 {
-    PyObject *module = PyModule_Create(&tester_module);
+    //PyObject *module = PyModule_Create(&tester_module);
+    PyObject *module = Py_InitModule3("tester", tester_functions, "Test module that crashes and does bad stuff");
 
     if (module == NULL)
-        return NULL;
-
-    return module;
+        return;
 }

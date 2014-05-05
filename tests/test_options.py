@@ -24,6 +24,7 @@ from minidumper import (MiniDumpWithFullMemoryInfo,
 class EnableOptions(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(dir=os.getcwd())
+        self.dir = os.path.split(self.dir)[1]
 
     def tearDown(self):
         shutil.rmtree(self.dir)
@@ -31,16 +32,17 @@ class EnableOptions(unittest.TestCase):
     def test_custom_name(self):
         subprocess.Popen([sys.executable, "-c",
                           "import minidumper, tester;"
-                          "minidumper.enable(name='custom', dir=r'{}');"
+                          "minidumper.enable(name=u'custom', dir=ur'{}');"
                           "tester.access_violation()".format(self.dir)]).wait()
 
         self.assertIn("custom", [x[:6] for x in os.listdir(self.dir)])
 
     def test_mdmp_size(self):
         for type in (MiniDumpWithFullMemoryInfo, MiniDumpWithThreadInfo): 
+            time.sleep(1)
             subprocess.Popen([sys.executable, "-c",
                               "import minidumper, tester;"
-                              "minidumper.enable(type={}, dir=r'{}');"
+                              "minidumper.enable(type={}, dir=ur'{}');"
                               "tester.access_violation()".format(
                                                     type, self.dir)]).wait()
 
@@ -58,13 +60,13 @@ class EnableOptions(unittest.TestCase):
         # This used to not be the case, so it raised a RuntimeError...
         proc = subprocess.Popen([sys.executable, "-c",
                           "import minidumper, tester;"
-                          "minidumper.enable(dir=r'{0}');"
-                          "minidumper.enable(dir=r'{0}');".format(self.dir)],
+                          "minidumper.enable(dir=ur'{0}');"
+                          "minidumper.enable(dir=ur'{0}');".format(self.dir)],
                                 stderr=subprocess.PIPE)
         stderr = proc.stderr.read().decode(sys.getfilesystemencoding())
         self.addCleanup(proc.stderr.close)
         text = re.sub("^\[\d* refs\]\\n$", "", stderr)
-        self.assertEqual("", text)
+        self.assertEqual(u"", text)
 
 
 if __name__ == "__main__":
